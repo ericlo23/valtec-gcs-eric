@@ -5,13 +5,15 @@ from typing import Dict
 
 from app.models.drone import TelemetryFrame, GPSCoordinate
 
-DRONE_IDS = ["drone-1", "drone-2", "drone-3"]
+COUNT = 100
+
+DRONE_IDS = ["drone-" + str(i + 1) for i in range(COUNT)]
 
 # Starting positions around a central point (Taipei 101 area)
 BASE_POSITIONS = {
-    "drone-1": (25.0330, 121.5654),
-    "drone-2": (25.0340, 121.5670),
-    "drone-3": (25.0320, 121.5640),
+    "drone-"
+    + str(i + 1): (25.0320 + random.random() / 1000, 121.5640 + random.random() / 1000)
+    for i in range(COUNT)
 }
 
 
