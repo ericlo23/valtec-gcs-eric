@@ -1,6 +1,6 @@
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import DroneCard from "./DroneCard";
-import { sendCommand } from "../api/commandApi";
+import { selectDroneIds } from "../store/droneSlice";
 
 // -----------------------------------------------------------------------
 // BUG #1 — This component has a React re-render performance problem.
@@ -15,26 +15,18 @@ import { sendCommand } from "../api/commandApi";
 // -----------------------------------------------------------------------
 
 function FleetDashboard() {
-  const dispatch = useDispatch();
-
-  const drones = useSelector((state) => state.drones);
-
-  const droneList = drones.ids.map((id) => drones.byId[id]);
+  const droneIds = useSelector(selectDroneIds);
 
   return (
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.title}>Valtec GCS — Fleet Dashboard</h1>
-        <span style={styles.subtitle}>{droneList.length} drones connected</span>
+        <span style={styles.subtitle}>{droneIds.length} drones connected</span>
       </header>
 
       <div style={styles.grid}>
-        {droneList.map((drone) => (
-          <DroneCard
-            key={drone.drone_id}
-            drone={drone}
-            onCommand={(droneId, type) => sendCommand(droneId, type)}
-          />
+        {droneIds.map((id) => (
+          <DroneCard key={id} droneId={id} />
         ))}
       </div>
     </div>

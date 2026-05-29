@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
+import { useSelector } from "react-redux";
 import { sendCommand } from "../api/commandApi";
+import { selectDroneById } from "../store/droneSlice";
 
 const STATUS_STYLES = {
   online: { background: "#e6f4ea", color: "#1e7e34", border: "1px solid #a8d5b0" },
@@ -7,7 +9,8 @@ const STATUS_STYLES = {
   offline: { background: "#fdecea", color: "#b71c1c", border: "1px solid #f5a0a0" },
 };
 
-function DroneCard({ drone, onCommand }) {
+function DroneCard({ droneId }) {
+  const drone = useSelector(selectDroneById(droneId));
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState(null);
 
@@ -16,7 +19,7 @@ function DroneCard({ drone, onCommand }) {
       setSending(true);
       setLastResult(null);
       try {
-        const result = await onCommand(drone.drone_id, type);
+        const result = await sendCommand(droneId, type);
         setLastResult({ ok: true, message: result.message });
       } catch (err) {
         setLastResult({ ok: false, message: err.message });
@@ -24,7 +27,7 @@ function DroneCard({ drone, onCommand }) {
         setSending(false);
       }
     },
-    [drone.drone_id, onCommand]
+    [droneId]
   );
 
   return (
@@ -124,4 +127,4 @@ const styles = {
   result: { fontSize: 12, margin: 0 },
 };
 
-export default DroneCard;
+export default memo(DroneCard);

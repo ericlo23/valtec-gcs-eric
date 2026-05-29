@@ -66,7 +66,15 @@ This codebase is intentionally simplified for a single-process, in-memory enviro
 
 ### Bug 1 — Re-render fix
 
-_Describe what was wrong and what you changed._
+The main cause of the re-renders is that the Dashboard subscribes to the entire `drones` slice. Whenever `useWebSocket` updates a single drone through `upsertTelemetry`, the whole slice gets updated because of how Immer works, which in turn causes the Dashboard to update as well. Once the Dashboard updates, all of the DroneCards inside it get updated too.
+
+A secondary issue is that when the Dashboard re-renders, it also causes unnecessary re-renders of the DroneCards. For example, when the number of drones changes, the DroneCards for drones that already existed re-render as well.
+
+This can be solved with the following approaches:
+
+1. Make DroneCard responsible for obtaining the drone object itself. Change its props to take only the drone id, and have it fetch the drone object from the store and call `sendCommand` on its own, instead of passing these down through the Dashboard. The benefit is that the Dashboard only needs the drone id list and no longer needs to subscribe to the entire slice, reducing the chance of re-renders.
+2. Wrap DroneCard with `memo` so it is only affected by changes to the drone id. This avoids re-rendering it just because the Dashboard re-renders.
+3. Remove `onCommand` from DroneCard and have it call `sendCommand` itself. `memo` alone is not enough; the inline function also needs to be removed, which can also be done with `useCallback`. Another benefit of pushing this down into DroneCard is improved component cohesion.
 
 ### Bug 2 — API error handling
 
