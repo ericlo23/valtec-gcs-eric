@@ -5,7 +5,7 @@ from typing import Dict
 
 from app.models.drone import TelemetryFrame, GPSCoordinate
 
-COUNT = 100
+COUNT = 3
 
 DRONE_IDS = ["drone-" + str(i + 1) for i in range(COUNT)]
 
