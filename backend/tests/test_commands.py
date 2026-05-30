@@ -5,6 +5,7 @@ Candidates may extend these as part of their submission.
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from app.dependencies import simulator
 
 
 @pytest.mark.asyncio
@@ -24,10 +25,21 @@ async def test_send_command_valid_drone():
 async def test_send_command_unknown_drone():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
-            "/drones/drone-99/command",
+            "/drones/drone-does-not-exist/command",
             json={"type": "land"},
         )
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_send_command_offline_drone(monkeypatch):
+    monkeypatch.setattr(simulator, "get_drone_status", lambda drone_id: "offline")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/drones/drone-1/command",
+            json={"type": "land"},
+        )
+    assert response.status_code == 409
 
 
 @pytest.mark.asyncio

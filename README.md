@@ -78,7 +78,11 @@ This can be solved with the following approaches:
 
 ### Bug 2 — API error handling
 
-_List each issue you found and how you fixed it._
+1. Missing `drone_id` existence check. The endpoint accepted any `drone_id` without verifying the drone exists — an issue the starter test caught but the code did not yet handle. Fixed by adding an existence check in `commands.py`: if the resource does not exist, return 404.
+
+2. Commands accepted for offline drones. A drone may enter an offline state, and an offline drone should not be able to process any command. Fixed by checking the drone's status in `commands.py`: if the drone is offline, return HTTP 409, indicating that the resource's current state conflicts with the command and it cannot be executed. I considered returning HTTP 200 with `body.status = "rejected"` instead, but since commands are in practice forwarded to the edge, and the edge decides whether a command can actually be executed, I reserved the command `status` field for the edge. Separation of concerns: the HTTP status represents the server-side processing result, while the `CommandResponse.status` represents the edge-side processing result.
+
+3. No error logging with command context. Wrapped `command_service.execute` in a `try/except` to log execution errors. Uvicorn's built-in error logging does not include the command parameter details, which makes failures hard to trace and reproduce. The added logging records the command context (`type`, `payload`, `drone_id`) to aid troubleshooting. The exception is then re-raised (a bare `raise`, not converted to `HTTPException(500)`) so that Uvicorn still logs the full traceback at ERROR level.
 
 ### Feature 3 — Alert system
 
