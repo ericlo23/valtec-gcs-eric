@@ -1,9 +1,15 @@
 import { useWebSocket } from "./hooks/useWebSocket";
 import FleetDashboard from "./components/FleetDashboard";
+import AlertBanner from "./components/AlertBanner";
 
 function App() {
   useWebSocket();
-  return <FleetDashboard />;
+  return (
+    <>
+      <AlertBanner />
+      <FleetDashboard />
+    </>
+  );
 }
 
 export default App;

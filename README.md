@@ -86,7 +86,49 @@ This can be solved with the following approaches:
 
 ### Feature 3 — Alert system
 
-_Describe your state design and any decisions you made._
+#### Design
+
+A dedicated Redux alert slice is the single source of truth. `useWebSocket` is the only producer: on each telemetry frame it detects the alert conditions and dispatches `addAlert` / `delAlert`; the slice's reducers are idempotent, so dismissal sticks. The UI renders one banner per active alert by reading the slice. Because the slice is independent of the connection state, **alert state survives a WebSocket reconnect** (an assignment constraint).
+
+I considered a separate `useAlerts` hook that subscribes to the slice, detects state changes, and dispatches — a cleaner separation of concerns. But a subscribe-and-detect approach likely carries more overhead, and `useWebSocket` is still fairly simple, so I kept detection inside `useWebSocket` directly.
+
+#### State
+
+```
+interface Alert {
+    key: string; // {droneId}_{type}
+    timestamp: number;
+    droneId: string;
+    type: 'low-battery' | 'lost';
+    visible: boolean;
+}
+
+interface AlertSliceModel {
+    byKey: Record<string, Alert>;
+    keys: string[];
+}
+```
+
+A given drone maps to at most one banner per alert type, so `key` is composed from the drone id and the type. The `keys` array exists because the UI should be ordered: even though each alert carries a `timestamp`, keeping an array preserves insertion order without sorting.
+
+#### Reducers
+
+The reducers are idempotent + no-op, which is what achieves the "do not pop up again once dismissed" behaviour while keeping the logic simple. All take payload `{ droneId, type }`:
+
+- `addAlert`: if the key already exists, skip; otherwise create the Alert with `visible` defaulting to `true`.
+- `delAlert`: if no matching alert exists, skip; otherwise remove it.
+- `hideAlert`: set the alert's `visible` to `false`; skip if it does not exist.
+
+#### Detection
+
+Both conditions are detected in `useWebSocket`, per frame. The hook only reports conditions; the reducers decide the rest.
+
+- **Low battery:** check the battery on each frame — if sufficient call `delAlert`, if low call `addAlert`.
+- **Offline:** `useWebSocket` maintains `offlineTimeouts: Record<string, number>` (droneId → timeout id). When an offline frame arrives and `offlineTimeouts[droneId]` does not exist, the drone just went offline, so set `offlineTimeouts[droneId] = setTimeout(..., 5_000)`; on fire it dispatches `addAlert` and clears the entry. If the timeout already exists, skip and let it fire. When a non-offline frame arrives, dispatch `delAlert` and, if a timeout exists, `clearTimeout` and clear the entry.
+
+#### UI
+
+Each alert renders one banner, and multiple banners stack when several are active. Each banner shows a message based on the droneId and type, with a close button that calls `dispatch(hideAlert(...))`.
 
 ### Feature 4 — Command queue
 
