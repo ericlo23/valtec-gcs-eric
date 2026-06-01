@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 from app.routers import telemetry, commands, drones
-from app.dependencies import simulator
+from app.dependencies import simulator, command_queue_service
 
 app = FastAPI(title="Valtec GCS API")
 
@@ -22,10 +22,12 @@ app.include_router(drones.router)
 @app.on_event("startup")
 async def startup():
     await simulator.start()
+    await command_queue_service.start()
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    await command_queue_service.stop()
     await simulator.stop()
 
 

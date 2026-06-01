@@ -89,6 +89,9 @@ class DroneSimulator:
         state = self._drones.get(drone_id)
         return state.status if state else None
 
+    async def execute_command(self, drone_id: str, command) -> None:
+        await asyncio.sleep(random.uniform(2, 4))
+
     def subscribe(self, callback):
         self._subscribers.append(callback)
 

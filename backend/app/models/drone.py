@@ -30,3 +30,15 @@ class CommandResponse(BaseModel):
     type: str
     status: Literal["accepted", "rejected", "error"]
     message: str = ""
+
+
+class PendingCommandItem(BaseModel):
+    command_id: str
+    type: str
+    submitted_at: datetime
+
+
+class PendingCommandsResponse(BaseModel):
+    drone_id: str
+    executing: PendingCommandItem | None = None
+    pending: list[PendingCommandItem] = []

@@ -132,4 +132,26 @@ Each alert renders one banner, and multiple banners stack when several are activ
 
 ### Feature 4 — Command queue
 
-_Describe your queue design and how you handle the offline drain case._
+#### Design
+
+`CommandQueueService` (`services/command_queue.py`) holds, per drone:
+
+- a FIFO `deque` of pending commands,
+- the currently-executing command,
+- one long-lived **worker** task.
+
+It's a producer/consumer model: the `POST` handler enqueues and returns immediately; the per-drone worker pulls one command, `await`s `execute_command` (the simulator's `asyncio.sleep` of a random 2–4s), and only pulls the next once that returns — so **one-at-a-time is guaranteed by the await itself**, with no polling and no locks beyond an `asyncio.Condition` to wake the idle worker. One worker per drone is cheap (an asyncio task is not an OS thread; an idle one costs almost nothing), so this scales to large fleets.
+
+#### Offline drain
+
+The service subscribes to telemetry. On a `status == "offline"` frame it clears that drone's pending `deque` **and cancels the in-flight execution**. I abort the executing command too, not just the pending ones: if the link is down the command never reached the drone, so failing it is the consistent outcome. The worker tells a drain-cancel (swallow, keep serving) from a shutdown-cancel (propagate and exit) by checking which task was cancelled. Submitting to an already-offline drone is still rejected up front with `409` and never enters the queue.
+
+#### `CommandResponse.status` — a shift from Bug 2
+
+Bug 2 framed `status` as the drone's processing result. The queue makes `POST` asynchronous (fire-and-queue): it returns the moment a command is enqueued, before execution, so `status` now means **"received and queued"** (`accepted`). Submit-time failures still use HTTP (`404` unknown drone, `409` offline); execution outcomes are only logged, not returned, and `rejected`/`error` stay reserved for domain verdicts (e.g. backpressure) not yet generated.
+
+#### What comes next
+
+One requirement is only partially met: on offline drain the task asks to "return an appropriate error for any pending commands", but here those commands are dropped and only logged, not surfaced. This is a consequence of the asynchronous (fire-and-queue) design — by the time a command is drained, its `POST` has long since returned `accepted`, so there is no open response to return an error on, and only active state (pending + executing) is tracked.
+
+To close this, terminal outcomes (completed / drained-as-error) would be persisted to a `commands` table, and a new route (e.g. `GET /drones/{id}/commands/{command_id}`) would let a client query a specific command's final status.

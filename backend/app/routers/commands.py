@@ -1,14 +1,12 @@
 import logging
 
 from fastapi import APIRouter, HTTPException
-from app.models.drone import CommandRequest, CommandResponse
-from app.services.command_service import CommandService
-from app.dependencies import simulator
+from app.models.drone import CommandRequest, CommandResponse, PendingCommandsResponse
+from app.dependencies import simulator, command_queue_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/drones", tags=["commands"])
-command_service = CommandService()
 
 
 # -----------------------------------------------------------------------
@@ -33,13 +31,23 @@ async def send_command(drone_id: str, command: CommandRequest):
             detail=f"Drone '{drone_id}' is offline and cannot accept commands",
         )
 
-    try:
-        result = await command_service.execute(drone_id, command)
-    except Exception:
-        logger.exception(
-            "Failed to execute command '%s' for drone '%s' (payload=%s)",
-            command.type, drone_id, command.payload,
-        )
-        raise
+    item = await command_queue_service.enqueue(drone_id, command)
 
-    return result
+    return CommandResponse(
+        command_id=item.command_id,
+        drone_id=drone_id,
+        type=command.type,
+        status="accepted",
+        message=f"Command {command.type} queued for {drone_id}",
+    )
+
+
+@router.get("/{drone_id}/commands/pending", response_model=PendingCommandsResponse)
+async def get_pending_commands(drone_id: str):
+    if simulator.get_drone_status(drone_id) is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Drone '{drone_id}' not found",
+        )
+
+    return command_queue_service.get_pending(drone_id)
