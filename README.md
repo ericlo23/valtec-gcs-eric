@@ -155,3 +155,9 @@ Bug 2 framed `status` as the drone's processing result. The queue makes `POST` a
 One requirement is only partially met: on offline drain the task asks to "return an appropriate error for any pending commands", but here those commands are dropped and only logged, not surfaced. This is a consequence of the asynchronous (fire-and-queue) design — by the time a command is drained, its `POST` has long since returned `accepted`, so there is no open response to return an error on, and only active state (pending + executing) is tracked.
 
 To close this, terminal outcomes (completed / drained-as-error) would be persisted to a `commands` table, and a new route (e.g. `GET /drones/{id}/commands/{command_id}`) would let a client query a specific command's final status.
+
+---
+
+### Observation beyond scope — Emergency land while offline
+
+While working on the queue I noticed an inconsistency in `DroneCard`: the **Hover** and **RTH** buttons are disabled when a drone is `offline` (`disabled={sending || drone.status === "offline"}`), but **Emergency land** is not (`disabled={sending}` only), so it stays clickable on an offline drone. The backend rejects it with `409` anyway, so it isn't harmful — but an offline drone has no link, so the command can't reach it regardless, and the button should arguably be disabled like the others for consistency. I left it as-is since it's outside the assignment's scope, but flagging it here.
